@@ -1,0 +1,20 @@
+{
+    "name": "secgin/phalcon-auth-plugin",
+    "description": "Phalcon framework authorization plugin",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "YG\\Phalcon\\Auth\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Seçgin",
+            "email": "secginsanli@gmail.com"
+        }
+    ],
+    "require": {},
+    "require-dev": {
+        "phalcon/ide-stubs": "~4.1"
+    }
+}
