@@ -6,13 +6,18 @@ Bir kullanıcının sadece bir ip den bağlı kalmasını sağlar.
 
 ## Kurulum
 
+```
+composer require secgin/phalcon-auth-plugin
+```
+
 - Bağımlılık kapına auth servisi kaydedilir.
 
 ```php
 $di->register(new AuthProvider());
 ```
 
-- Kullanıcı izinlerini almak için 'AuthDataServiceInterface' arayüzünü uygulayan bir sınıf oluşturup bunu 'authDataService' isminde bağımlılık kapına kaydedilir.
+- Kullanıcı izinlerini almak için 'AuthDataServiceInterface' arayüzünü uygulayan bir sınıf oluşturup bunu '
+  authDataService' isminde bağımlılık kapına kaydedilir.
 
 ### Giriş Örneği
 
@@ -48,7 +53,8 @@ catch (Exception $e)
 - 7: Okuma, Yazma, Güncelleme
 - 9: Okuma, Yazma, Güncelleme, Silme
 
-Örneğin: Kullanıcı işlemleri için 100 kodu ve yetkisi düzeyi en az 3(Okuma) verilir. Kullanıcı listesini oluşturmadan önce aşağıdaki kontrolü yaparak
+Örneğin: Kullanıcı işlemleri için 100 kodu ve yetkisi düzeyi en az 3(Okuma) verilir. Kullanıcı listesini oluşturmadan
+önce aşağıdaki kontrolü yaparak
 kullanıcının sayfaya yetkisi varmı kontrol edilir.
 
 ```php
