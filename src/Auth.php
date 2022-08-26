@@ -7,7 +7,9 @@ use Phalcon\Di\Injectable;
 
 class Auth extends Injectable implements AuthInterface
 {
-    private string $authName;
+    private string
+        $authName,
+        $cacheDir;
 
     private User $user;
 
@@ -91,17 +93,18 @@ class Auth extends Injectable implements AuthInterface
     private function setOptions(array $options)
     {
         $this->authName = $options['authName'] ?? 'auth';
+        $this->cacheDir = $options['cacheDir'] ?? sys_get_temp_dir() . '/';
     }
 
     private function saveIpAddressOfLastLogin(): void
     {
-        $file = sys_get_temp_dir() . '/auth_' . $this->user->id . 'txt';
+        $file = $this->cacheDir . 'session/auth_' . $this->user->id;
         file_put_contents($file, $this->request->getClientAddress());
     }
 
     private function getIpAddressOfLastLogin(): string
     {
-        $file = sys_get_temp_dir() . '/auth_' . $this->user->id . 'txt';
+        $file = $this->cacheDir . 'session/auth_' . $this->user->id;
         return file_exists($file) ? file_get_contents($file) : '';
     }
 }
