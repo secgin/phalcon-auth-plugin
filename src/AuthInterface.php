@@ -3,11 +3,12 @@
 namespace YG\Phalcon\Auth;
 
 /**
- * @property Permission         $authPermission
- * @property ResourcePermission $authResourcePermission
- * @property AuthSession        $authSession
+ * @property Permission               $authPermission
+ * @property ResourcePermission       $authResourcePermission
+ * @property AuthSession              $authSession
+ * @property AuthDataServiceInterface $authDataService
  *
- * @property User               $user
+ * @property User                     $user
  */
 interface AuthInterface
 {
@@ -18,6 +19,8 @@ interface AuthInterface
     public function isLogin(): bool;
 
     public function isPublicResource(string $class, string $method): bool;
+
+    public function isAllowedIpAddress(): bool;
 
     public function hasAllowed(string $permissionCode, int $permissionLevel, ?string $module = null): bool;
 

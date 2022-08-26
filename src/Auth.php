@@ -11,6 +11,8 @@ class Auth extends Injectable implements AuthInterface
         $authName,
         $cacheDir;
 
+    private bool $useAllowedIpAddress;
+
     private User $user;
 
     public function __construct(array $options = [])
@@ -59,6 +61,12 @@ class Auth extends Injectable implements AuthInterface
         return $this->authResourcePermission->isPublic($class, $method);
     }
 
+    public function isAllowedIpAddress(): bool
+    {
+        return !$this->useAllowedIpAddress or
+                $this->authDataService->isAllowedIpAddress($this->request->getClientAddress());
+    }
+
     public function hasAllowed(string $permissionCode, int $permissionLevel, string $module = null): bool
     {
         return $this->authPermission->hasAllowed($permissionCode, $permissionLevel, $module);
@@ -94,6 +102,7 @@ class Auth extends Injectable implements AuthInterface
     {
         $this->authName = $options['authName'] ?? 'auth';
         $this->cacheDir = $options['cacheDir'] ?? sys_get_temp_dir() . '/';
+        $this->useAllowedIpAddress = $options['useAllowedIpAddress'] ?? false;
     }
 
     private function saveIpAddressOfLastLogin(): void
