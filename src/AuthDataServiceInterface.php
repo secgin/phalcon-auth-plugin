@@ -4,7 +4,7 @@ namespace YG\Phalcon\Auth;
 
 interface AuthDataServiceInterface
 {
-    public function getPermissions(): array;
+    public function getPermissionLevel(string $permissionCode, ?string $moduleName = null): ?int;
 
-    public function isAllowedIpAddress(string $ipAddress): bool;
+    public function isIpAddressAllowed(string $ipAddress): bool;
 }

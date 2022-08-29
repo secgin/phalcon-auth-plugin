@@ -10,17 +10,14 @@ class AuthProvider implements ServiceProviderInterface
     public function register(DiInterface $di): void
     {
         $config = $di->getShared('config');
-        $cacheDir = $config->application->cacheDir;
-        $useAllowedIpAddress = $config->application->useAllowedIpAddress;
+        $authConfig = $config->auth->toArray() ?? [];
+        $authConfig['cacheDir'] = $config->application->cacheDir . 'session/';
 
         $di->setShared('authPermission', Permission::class);
         $di->setShared('authSession', AuthSession::class);
         $di->setShared('authResourcePermission', ResourcePermission::class);
-        $di->setShared('auth', function() use ($cacheDir, $useAllowedIpAddress) {
-            return new Auth([
-                'cacheDir' => $cacheDir,
-                'useAllowedIpAddress' => $useAllowedIpAddress
-            ]);
+        $di->setShared('auth', function() use ($authConfig) {
+            return new Auth($authConfig);
         });
     }
 }

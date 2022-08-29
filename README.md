@@ -1,8 +1,13 @@
 # Phalcon Framework Auth Plugin
 
-Kullanıcı giriş bilgilerini oturumda saklar ve kullanıcının giriş yapıp yapmadığını oturun bilgisi ile kontrol eder.
+Outurum bilgisi ile bir kullanıcının giriş yapıp yapmadığını kontrol eder.
 
-Bir kullanıcının sadece bir ip den bağlı kalmasını sağlar.
+- Aynı anda sadece bir ip adresinden girişe izin verilir.
+- Kullanıcıların sayfalara erişim izni olup olmadığını kontrol edebilirsiniz.
+- Ayarlardan aktif edilirse sadece izin verilen ip adreslerinden erişim yapılmasını sağlayabilirsiniz.
+
+Not: Yetki ve ip adresi izni için 'AuthDataServiceInterface' sınıfını uygulayan bir sınıfınız olmalıdır. Kullanıcıların
+yetkileri ve izin verilen ip adresleri bu sınıf aracılığı ile alınır.
 
 ## Kurulum
 
@@ -10,16 +15,99 @@ Bir kullanıcının sadece bir ip den bağlı kalmasını sağlar.
 composer require secgin/phalcon-auth-plugin
 ```
 
-- Bağımlılık kapına auth servisi kaydedilir.
+## Uygulama Adımları
+
+### Servis kaydedilir
 
 ```php
 $di->register(new AuthProvider());
 ```
 
-- Kullanıcı izinlerini almak için 'AuthDataServiceInterface' arayüzünü uygulayan bir sınıf oluşturup bunu '
-  authDataService' isminde bağımlılık kapına kaydedilir.
+### İzinler ve Ip Adresileri (AuthDataServiceInterface)
 
-### Giriş Örneği
+Kullanıcı izinlerini almak için 'AuthDataServiceInterface' arayüzünü uygulayan bir sınıf oluşturup 'authDataService'
+isminde kaydedilir.
+
+```php
+class AuthDataService implements AuthDataServiceInterface
+{
+    private array $permissions = [
+        '100' => 7,
+        '101' => 9,
+        'user' => [
+            '100' => 9,
+            '101' => 9
+        ],
+        'customer' => [
+            '100' => 9,
+            '101' => 3
+        ]
+    ];
+
+    private array $allowedIpAddresses = [
+        '127.0.0.1',
+        '::1',
+        '192.168.1.42'
+    ];
+
+    public function getPermissionLevel(string $permissionCode, ?string $moduleName = null): ?int
+    {
+        return $moduleName != ''
+            ? $this->permissions[$moduleName][$permissionCode] ?? null
+            : $this->permissions[$permissionCode] ?? null;
+    }
+
+    public function isIpAddressAllowed(string $ipAddress): bool
+    {
+        return in_array($ipAddress, $this->allowedIpAddresses);
+    }
+}
+```
+
+```php
+$container->setShared('authDataService', AuthDataService::class);
+```
+
+### <a name="authDataServiceInterface"></a>Sayfaların yetkilerinin kontrol edildiği adım
+
+Dispatcher servisinin olay dinleyicisine aşığadaki sınıfı uygulayıp açılan sayfaların yetki kontrolü yapılır.
+
+```php
+class DispatcherEventHandler extends Injectable
+{
+    public function beforeExecuteRoute(Event $event, Dispatcher $dispatcher): bool
+    {
+        $result = $this->auth->hasAllowed(
+            $dispatcher->getControllerClass(),
+            $dispatcher->getActiveMethod(),
+            $dispatcher->getModuleName());
+
+        switch ((string)$result)
+        {
+            case AuthInterface::NOT_LOGGED_IN:
+                $this->response
+                    ->redirect('user');
+                return false;
+            case AuthInterface::NOT_ALLOWED_IP_ADDRESS:
+                $this->response
+                    ->redirect('user/ip');
+                return false;
+            case AuthInterface::NOT_ALLOWED_RESOURCE:
+                $dispatcher->forward([
+                    'controller' => 'error',
+                    'action' => 'show401'
+                ]);
+                return false;
+        }
+
+        return true;
+    }
+}
+```
+
+### Giriş İşlemi
+
+Kullanıcının adı ve şifresini doğruladıktan sonra login işlemini başlatmalısınız.
 
 ```php
 try
@@ -40,11 +128,12 @@ catch (Exception $e)
 }
 ```
 
-## İzin Yönetimi
+### Ek Açıklamalar(Annotation) Yetkilerin Belirlenmesi
 
 İzin kontrolü izin kodu ve düzey değerlerine göre yapılır.
 
-İzin Kodu: Ugulamada izin verilecek her sayfa yada işlem için bir kod belirlenir.
+İzin Kodu: Ugulamada izin verilecek her işlem için bir kod belirlenir. Bu kodları 'AuthDataServiceInterface' arayüzünü
+uygulayan sınıf ile alınır.
 
 İzin Düzeyi Seçenekleri:
 
@@ -53,22 +142,15 @@ catch (Exception $e)
 - 7: Okuma, Yazma, Güncelleme
 - 9: Okuma, Yazma, Güncelleme, Silme
 
-Örneğin: Kullanıcı işlemleri için 100 kodu ve yetkisi düzeyi en az 3(Okuma) verilir. Kullanıcı listesini oluşturmadan
-önce aşağıdaki kontrolü yaparak
-kullanıcının sayfaya yetkisi varmı kontrol edilir.
+Ek açıklamalar
 
-```php
-    $result = $auth->hasPermission(100, 3);
+- @Public: Sayfanın yada işlemin herkese açık olduğunu belirtir. Örneğin login sayfası.
+- @Private: Erişim kısıtlaması olan sayfalar için kullanılır. Bu açıklama varsayılan değerdir, eğer izin kodu ve düzeyi
+  belirtilmesse sadece kullanıcını giriş yapması sayafaya erişim için yeterli olur.
+- @IpAllowed: Bu açıklama ise bir kullanıcının tüm ip adreslerinden giriş yapmasını sağlar. Örneğin kullanıcıya ip izni
+  vermek için kulanılan sayfaya bu açıklama eklenir.
 
-    if ($result)
-        echo 'Yetkisi var';
-    else
-        echo 'Yetkisi yok';
-```
-
-### Annotation İle Yetki Kontrolü
-
-Uygulamada bir kaynağın izin kodu ve düzeyi annotation ile tanımlanabilir.
+### Private kullanımı
 
 Sınıf için @Private(izin kodu)
 
@@ -119,67 +201,22 @@ olduğunu verir.
 
 Yetki kodu yazılmaz ise sınıfa tanımlı yetki kodu baz alınır.
 
-Uygulama genelinde bu kontrolü yapmak için Dispatcher servisinin olay dinleyicisine aşağıdakı örnek yapı kulanılabilir.
+## Ayarlar
+
+Projenin config dosyasında auth isminde bir ayar grubu oluşturulur. Varsayılan değerler ile işlem yapıalcak ise
+aşağıdaki seçenekler girilmeyebilir.
 
 ```php
-class DispatchEventHandler extends Injectable
-{
-    public function beforeDispatchLoop(Event $event, Dispatcher $dispatcher): bool
-    {
-        if (!$this->auth->isLogin())
-        {
-            $this->response->redirect(['for' => 'user-login']);
-            return false;
-        }
-            
-        $hasPermission = $this->auth->hasAllowedResource(
-            $dispatcher->getControllerClass(),
-            $dispatcher->getActiveMethod(),
-            $dispatcher->getModuleName()
-        );
-        if (!$hasPermission)
-            return false;
-
-        return true;
-    }
-}
+new Config([
+    'application' => [
+        'cacheDir' => BASE_PATH . '/var/cache/',
+    ],
+    'auth' => [
+        'useAllowedIpAddress' => f,
+        'defaultAction' => 0
+    ]
+]);
 ```
 
-### AuthDataServiceInterface Uygulama Örneği
-
-Modüler yapı kullanıyorsanız izin değerleri modül isimlerine göre gruplanıp gönderilir. Modüller arasında izin kodları
-aynı olabilir.
-
-```php
-class AuthDataService implements AuthDataServiceInterface
-{
-    public function getPermissions($userId)
-    {
-        return [
-            'user' => [
-                '100' => 9,
-                '101' => 9
-            ],
-            'customer' => [
-                '100' => 9,
-                '101' => 3
-            ]
-        ];
-    }
-}
-```
-
-Modül kullanılmıyorsa
-
-```php
-class AuthDataService implements AuthDataServiceInterface
-{
-    public function getPermissions($userId)
-    {
-        return [
-            '100' => 5,
-            '101' => 9
-        ];
-    }
-}
-```
+- useAllowedIpAddress(bool[false]): Sadece izin verilen ip adreslerine erişim izni vermek için 'true' gönderilir.
+- defaultAction(int): 0-1 değerlerini alır. 0 varsayılan olarak tüm sayfalar private, 1 ise public olarak işlem yapılır.

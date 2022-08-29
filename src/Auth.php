@@ -13,6 +13,8 @@ class Auth extends Injectable implements AuthInterface
 
     private bool $useAllowedIpAddress;
 
+    private int $defaultAction;
+
     private User $user;
 
     public function __construct(array $options = [])
@@ -56,41 +58,37 @@ class Auth extends Injectable implements AuthInterface
         return $isLogin;
     }
 
-    public function isPublicResource(string $class, string $method): bool
+    public function hasAllowed(string $class, string $method, ?string $module = null)
     {
-        return $this->authResourcePermission->isPublic($class, $method);
-    }
+        $isPublic = $this->authResourcePermission->isPublic($class, $method, $this->defaultAction);
 
-    public function isAllowedIpAddress(): bool
-    {
-        return !$this->useAllowedIpAddress or
-                $this->authDataService->isAllowedIpAddress($this->request->getClientAddress());
-    }
-
-    public function hasAllowed(string $permissionCode, int $permissionLevel, string $module = null): bool
-    {
-        return $this->authPermission->hasAllowed($permissionCode, $permissionLevel, $module);
-    }
-
-    public function hasAllowedResource(string $class, string $method, ?string $module = null): bool
-    {
-        if ($this->isPublicResource($class, $method))
+        if ($isPublic)
             return true;
 
-        if (!$this->isLogin())
-            return false;
+        if ($this->isLogin() === false)
+            return AuthInterface::NOT_LOGGED_IN;
 
-        list($permissionCode, $permissionLevel) = $this->authResourcePermission->getPermissionValues($class, $method);
+        if ($this->isIpAddressAllowed($class, $method) === false)
+            return AuthInterface::NOT_ALLOWED_IP_ADDRESS;
+        
+        if ($this->isResourceAllowed($class, $method, $module) === false)
+            return AuthInterface::NOT_ALLOWED_RESOURCE;
 
-        return $permissionCode == null or $this->hasAllowed($permissionCode, $permissionLevel, $module);
+        return true;
     }
 
-    public function __get($propertyName)
+    public function setDefaultAction(int $action): void
     {
-        if ($propertyName == 'user')
-            return $this->user;
+        $this->defaultAction = $action == 1 ? self::ALLOW : self::DENY;
+    }
 
-        return parent::__get($propertyName);
+
+    private function setOptions(array $options)
+    {
+        $this->authName = $options['authName'] ?? 'auth';
+        $this->cacheDir = $options['cacheDir'] ?? sys_get_temp_dir() . '/';
+        $this->useAllowedIpAddress = $options['useAllowedIpAddress'] ?? false;
+        $this->setDefaultAction((int)($options['defaultAction'] ?? AuthInterface::DENY));
     }
 
     private function assignUser(array $data): void
@@ -98,22 +96,41 @@ class Auth extends Injectable implements AuthInterface
         $this->user = new User($data);
     }
 
-    private function setOptions(array $options)
+    private function isIpAddressAllowed(string $class, string $method): bool
     {
-        $this->authName = $options['authName'] ?? 'auth';
-        $this->cacheDir = $options['cacheDir'] ?? sys_get_temp_dir() . '/';
-        $this->useAllowedIpAddress = $options['useAllowedIpAddress'] ?? false;
+        return
+            $this->useAllowedIpAddress === false ||
+            $this->authResourcePermission->hasIpAllowed($class, $method) ||
+            $this->authPermission->isIpAddressAllowed($this->request->getClientAddress());
+    }
+
+    private function isResourceAllowed(string $class, string $method, ?string $module = null): bool
+    {
+        list($permissionCode, $permissionLevel) = $this->authResourcePermission->getPermissionValues($class, $method);
+
+        return
+            $permissionCode == null ||
+            $this->authPermission->isAllowed($permissionCode, $permissionLevel, $module);
     }
 
     private function saveIpAddressOfLastLogin(): void
     {
-        $file = $this->cacheDir . 'session/auth_' . $this->user->id;
+        $file = $this->cacheDir . 'auth_' . $this->user->id;
         file_put_contents($file, $this->request->getClientAddress());
     }
 
     private function getIpAddressOfLastLogin(): string
     {
-        $file = $this->cacheDir . 'session/auth_' . $this->user->id;
+        $file = $this->cacheDir . 'auth_' . $this->user->id;
         return file_exists($file) ? file_get_contents($file) : '';
+    }
+
+
+    public function __get($propertyName)
+    {
+        if ($propertyName == 'user')
+            return $this->user;
+
+        return parent::__get($propertyName);
     }
 }

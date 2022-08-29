@@ -7,32 +7,21 @@ use Phalcon\Di\Injectable;
 class ResourcePermission extends Injectable
 {
     /**
-     *  Özniteliklerden bir sınıfın yada metodun herkese açık(Public) olup olmadığını kontrol eder.
-     *
-     * @param string $class
-     * @param string $method
-     *
-     * @return bool
+     *  Metodun yada sınıfın herkese açık olup olmadığını kontrol eder.
      */
-    public function isPublic(string $class, string $method): bool
+    public function isPublic(string $class, string $method, int $defaultAction): bool
     {
-        $methodAnnotations = $this->annotations->getMethod($class, $method);
-        if ($methodAnnotations->has('Public'))
-            return true;
+        if ($defaultAction == AuthInterface::DENY)
+            return $this->hasPublic($class, $method);
 
-        $annotations = $this->annotations->get($class);
-        $classAnnotations = $annotations->getClassAnnotations();
-
-        return $classAnnotations and !$methodAnnotations->has('Private') and $classAnnotations->has('Public');
+        return !$this->hasPrivate($class, $method);
     }
 
     /**
-     * Özniteliklerden yetki kodunu ve yetki düzeyini alır. [permissionCode, permissionLevel] formatında dizi döner.
+     * Metodın ek açıklamalarından yetki kodunu ve yetki düzeyini alır. [permissionCode, permissionLevel] formatında
+     * dizi döner.
      *
-     * @param string $class
-     * @param string $method
-     *
-     * @return array
+     * @return string[]
      */
     public function getPermissionValues(string $class, string $method): array
     {
@@ -65,5 +54,44 @@ class ResourcePermission extends Injectable
         }
 
         return [$permissionCode, $permissionLevel];
+    }
+
+    /**
+     * Bir metodun tüm ip adreslerine izin verilip verilmediğini kontrol eder.
+     */
+    public function hasIpAllowed(string $class, string $method): bool
+    {
+        $methodAnnotations = $this->annotations->getMethod($class, $method);
+        if ($methodAnnotations->has('IpAllowed'))
+            return true;
+
+        $annotations = $this->annotations->get($class);
+        $classAnnotations = $annotations->getClassAnnotations();
+
+        return $classAnnotations and $methodAnnotations->has('IpAllowed');
+    }
+
+    private function hasPrivate(string $class, string $method): bool
+    {
+        $methodAnnotations = $this->annotations->getMethod($class, $method);
+        if ($methodAnnotations->has('Private'))
+            return true;
+
+        $annotations = $this->annotations->get($class);
+        $classAnnotations = $annotations->getClassAnnotations();
+
+        return $classAnnotations and $methodAnnotations->has('Private');
+    }
+
+    private function hasPublic(string $class, string $method): bool
+    {
+        $methodAnnotations = $this->annotations->getMethod($class, $method);
+        if ($methodAnnotations->has('Public'))
+            return true;
+
+        $annotations = $this->annotations->get($class);
+        $classAnnotations = $annotations->getClassAnnotations();
+
+        return $classAnnotations and $methodAnnotations->has('Public');
     }
 }
