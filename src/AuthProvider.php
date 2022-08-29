@@ -2,6 +2,7 @@
 
 namespace YG\Phalcon\Auth;
 
+use Phalcon\Config;
 use Phalcon\Di\DiInterface;
 use Phalcon\Di\ServiceProviderInterface;
 
@@ -9,9 +10,11 @@ class AuthProvider implements ServiceProviderInterface
 {
     public function register(DiInterface $di): void
     {
+        /** @var Config $config */
         $config = $di->getShared('config');
-        $authConfig = $config->auth->toArray() ?? [];
-        $authConfig['cacheDir'] = $config->application->cacheDir . 'session/';
+        $authConfig = $config->get('auth');
+        $authConfig = $authConfig ? $authConfig->toArray() : [];
+        $authConfig['cacheDir'] = $config->path('application.cacheDir') . 'session/';
 
         $di->setShared('authPermission', Permission::class);
         $di->setShared('authSession', AuthSession::class);
