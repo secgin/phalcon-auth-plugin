@@ -110,6 +110,7 @@ class Auth extends Injectable implements AuthInterface
 
         return
             $permissionCode == null ||
+            ($permissionCode == 0 and $permissionLevel == 0) ||
             $this->authPermission->isAllowed($permissionCode, $permissionLevel, $module);
     }
 
