@@ -13,6 +13,8 @@ class Auth extends Injectable implements AuthInterface
 
     private bool $useAllowedIpAddress;
 
+    private bool $allowMultipleLogin = true;
+
     private int $defaultAction;
 
     private User $user;
@@ -49,10 +51,16 @@ class Auth extends Injectable implements AuthInterface
     {
         $isLogin = $this->authSession->has($this->authName);
 
-        if ($isLogin and $this->getIpAddressOfLastLogin() != $this->request->getClientAddress())
+        if ($isLogin and !$this->allowMultipleLogin)
         {
-            $this->logout();
-            return false;
+            $lastLoginIpAddress = $this->getIpAddressOfLastLogin();
+            $currentIpAddress = $this->request->getClientAddress();
+
+            if ($lastLoginIpAddress != $currentIpAddress)
+            {
+                $this->logout();
+                return false;
+            }
         }
 
         return $isLogin;
@@ -70,7 +78,7 @@ class Auth extends Injectable implements AuthInterface
 
         if ($this->isIpAddressAllowed($class, $method) === false)
             return AuthInterface::NOT_ALLOWED_IP_ADDRESS;
-        
+
         if ($this->isResourceAllowed($class, $method, $module) === false)
             return AuthInterface::NOT_ALLOWED_RESOURCE;
 
@@ -87,7 +95,8 @@ class Auth extends Injectable implements AuthInterface
     {
         $this->authName = $options['authName'] ?? 'auth';
         $this->cacheDir = $options['cacheDir'] ?? sys_get_temp_dir() . '/';
-        $this->useAllowedIpAddress = $options['useAllowedIpAddress'] ?? false;
+        $this->useAllowedIpAddress = boolval($options['useAllowedIpAddress'] ?? false);
+        $this->allowMultipleLogin = boolval($options['allowMultipleLogin'] ?? false);
         $this->setDefaultAction((int)($options['defaultAction'] ?? AuthInterface::DENY));
     }
 
@@ -106,7 +115,7 @@ class Auth extends Injectable implements AuthInterface
 
     private function isResourceAllowed(string $class, string $method, ?string $module = null): bool
     {
-        list($permissionCode, $permissionLevel) = $this->authResourcePermission->getPermissionValues($class, $method);
+        [$permissionCode, $permissionLevel] = $this->authResourcePermission->getPermissionValues($class, $method);
 
         return
             $permissionCode == null ||
