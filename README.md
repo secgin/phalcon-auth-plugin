@@ -212,11 +212,13 @@ new Config([
         'cacheDir' => BASE_PATH . '/var/cache/',
     ],
     'auth' => [
-        'useAllowedIpAddress' => f,
-        'defaultAction' => 0
+        'useAllowedIpAddress' => true,
+        'defaultAction' => 0,
+        'allowMultipleLogin' => true
     ]
 ]);
 ```
 
 - useAllowedIpAddress(bool[false]): Sadece izin verilen ip adreslerine erişim izni vermek için 'true' gönderilir.
 - defaultAction(int): 0-1 değerlerini alır. 0 varsayılan olarak tüm sayfalar private, 1 ise public olarak işlem yapılır.
+- allowMultipleLogin(bool[false]): Farklı ip adreslerinde login olmayı izin vermek için kullanılır.
